@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "ssdlite-mobilenet-v3"
+version = "0.1.0"
+description = ""
+authors = ["steelbear <steelbear@kunsan.ac.kr>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = { version = "1.13.1", source = "torch" }
+torchvision = { version = "0.14.1", source = "torch" }
+torchaudio = { version = "0.13.1", source = "torch" }
+pycocotools = "^2.0.7"
+wandb = "^0.16.0"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu117"
+priority = "supplemental"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

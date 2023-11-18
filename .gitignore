@@ -1,0 +1,6 @@
+coco/*
+*.pth
+__pycache__/*
+wandb/*
+*.json
+poetry.lock

@@ -1,7 +1,7 @@
 import json
 
-train_json_path = 'coco/annotations/instances_train2017.json'
-train_json_path = 'coco/annotations/instances_val2017_ori.json'
+#train_json_path = 'coco/annotations/instances_train2017.json'
+train_json_path = 'coco/annotations/instances_val2017.json'
 
 # load json data
 with open(train_json_path, "r") as json_file:
@@ -26,12 +26,11 @@ for idx, i in enumerate(json_data['images']):
 
     # for adx, anno in enumerate(json_data['annotations']):
     #     print(anno)
-
-# for idx, i in enumerate(json_data['annotations']):
-#     del json_data['annotations'][idx]['segmentation']
-#     del json_data['annotations'][idx]['area']
-#     print(json_data['annotations'][idx])
-#     # break
+    #for idx, i in enumerate(json_data['annotations']):
+    #     del json_data['annotations'][idx]['segmentation']
+    #     del json_data['annotations'][idx]['area']
+    #     print(json_data['annotations'][idx])
+    #     # break
 
 #
 with open('coco/annotations/instances_val2017_1000.json', 'w') as outfile:

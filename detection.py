@@ -28,6 +28,7 @@ import torchvision
 import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
 import utils
+import wandb
 from coco_utils import get_coco
 from engine import evaluate, train_one_epoch
 from group_by_aspect_ratio import create_aspect_ratio_groups, GroupedBatchSampler
@@ -45,7 +46,7 @@ def get_dataset(is_train, args):
     print(is_train, args)
     print("#############################44")
     image_set = "train" if is_train else "val"
-    num_classes, mode = {"coco": (91, "instances"), "coco_kp": (2, "person_keypoints")}[args.dataset]
+    num_classes, mode = {"coco": (91, "instances"), "coco_kp": (2, "person_keypoints"), "circor": (3, "circor")}[args.dataset]
     with_masks = "mask" in args.model
     ds = get_coco(
         root=args.data_path,
@@ -189,6 +190,11 @@ def get_args_parser(add_help=True):
 
     parser.add_argument("--backend", default="PIL", type=str.lower, help="PIL or tensor - case insensitive")
     parser.add_argument("--use-v2", action="store_true", help="Use V2 transforms")
+    parser.add_argument(
+        "--wandb",
+        help="Use WandB",
+        action="store_true",
+    )
 
     return parser
 
@@ -197,8 +203,8 @@ def main(args):
     if args.backend.lower() == "tv_tensor" and not args.use_v2:
         raise ValueError("Use --use-v2 if you want to use the tv_tensor backend.")
 
-    if args.dataset not in ("coco", "coco_kp"):
-        raise ValueError(f"Dataset should be coco or coco_kp, got {args.dataset}")
+    if args.dataset not in ("coco", "coco_kp", "circor"):
+        raise ValueError(f"Dataset should be circor, coco or coco_kp, got {args.dataset}")
 
     if "keypoint" in args.model and args.dataset != "coco_kp":
         raise ValueError("Oops, if you want Keypoint detection, set --dataset coco_kp")
@@ -330,6 +336,21 @@ def main(args):
         torch.backends.cudnn.deterministic = True
         evaluate(model, data_loader_test, device=device)
         return
+    
+    if args.wandb:
+        wandb.init(
+            project="SSDLite+MobileNetV3",
+            config={
+                "learning_rate": args.lr,
+                "lr_scheduler": args.lr_scheduler,
+                "lr_step_size": args.lr_step_size,
+                "lr_steps": args.lr_steps,
+                "lr_gamma": args.lr_gamma,
+                "architecture": "SSDLite+MobileNetV3",
+                "dataset": "CirCor",
+                "max_epoch": args.epochs,
+            }
+        )
 
     print("Start training")
     start_time = time.time()
@@ -338,7 +359,16 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train_one_epoch(model, optimizer, data_loader, device, epoch, args.print_freq, scaler)
+        metric_logger = train_one_epoch(model, optimizer, data_loader, device, epoch, args.print_freq, scaler)
+
+        if args.wandb:
+            wandb.log({
+                'loss': metric_logger.loss.avg,
+                'location loss': metric_logger.bbox_regression.avg,
+                'confidence loss': metric_logger.classification.avg,
+                'learning rate': metric_logger.lr.value,
+            })
+
         lr_scheduler.step()
 
         if args.output_dir:
@@ -362,6 +392,8 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
+    if args.wandb:
+        wandb.finish()
 
 
 if __name__ == "__main__":

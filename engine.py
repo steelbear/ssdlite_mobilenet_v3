@@ -2,6 +2,7 @@ import math
 import sys
 import time
 
+import wandb
 import torch
 import torchvision.models.detection.mask_rcnn
 import utils
@@ -9,7 +10,7 @@ from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, scaler=None):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, scaler=None, use_wandb=False):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -34,6 +35,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = utils.reduce_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
+        if use_wandb:
+            wandb.log({'loss': losses_reduced.item(), 'location loss': loss_dict_reduced['bbox_regression'].item(), 'confidence loss': loss_dict_reduced['classification'].item()})
 
         loss_value = losses_reduced.item()
 
