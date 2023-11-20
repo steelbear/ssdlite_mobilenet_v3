@@ -1,5 +1,4 @@
 import argparse
-import csv
 import json
 import os
 import re
@@ -58,7 +57,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--dataset', type=str, help='dataset record file')
 parser.add_argument('--dataset_root', type=str, help='path to dataset folder')
 parser.add_argument('--output', type=str, help='path to json file to save the result')
-args = parser.parse_args()
 
 
 def filename2id(filename):
@@ -74,10 +72,10 @@ def get_image_and_anno(file_path: str):
 
     filename = file_path.split('/')[-1]
     image_path = file_path + '.png'
-    tsv_path = file_path + '.tsv'
+    json_path = file_path + '.json'
     image_id = filename2id(filename)
 
-    image = cv2.imread(os.path.join(os.getenv('HOME'), 'data/CirCor', image_path))
+    image = cv2.imread(os.path.join(args.dataset_root, image_path))
     height, width, _ = image.shape
     image_info = {
         "file_name": filename + '.png',
@@ -86,13 +84,12 @@ def get_image_and_anno(file_path: str):
         "width": width
     }
 
-    with open(os.path.join(os.getenv('HOME'), 'data/CirCor', tsv_path), 'r') as f:
-        reader = csv.reader(f, delimiter='\t')
+    with open(os.path.join(args.dataset_root, json_path), 'r') as f:
+        anno_json = json.load(f)
 
         id = 0
         
-        for xmin, ymin, xmax, ymax, anno in reader:
-            xmin, ymin, xmax, ymax = (float(num) for num in [xmin, ymin, xmax, ymax])
+        for xmin, ymin, xmax, ymax, anno in anno_json:
             category_id = 1 if int(anno) == 1 else 2
             bbox_height = ymax - ymin
             bbox_width = xmax - xmin
@@ -141,4 +138,5 @@ def main():
 
 
 if __name__ == '__main__':
+    args = parser.parse_args()
     main()

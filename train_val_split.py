@@ -16,11 +16,12 @@ args = parser.parse_args()
 
 
 def save_file_list(dir, output):
-    file_list = glob.glob(os.path.join(dir, '*.tsv'))
+    file_list = glob.glob(os.path.join(dir, '*.json'))
     with open(output, 'w') as f:
         for file_path in file_list:
-            filepath = file_path[:-4]
-            f.write(filepath + '\n')
+            dir_path, file_name = os.path.split(file_path)
+            _, dir_name = os.path.split(dir_path)
+            f.write(f'{dir_name}/{file_name[:-5]}\n')
 
 
 def main():
@@ -44,13 +45,13 @@ def main():
 
     for i, is_train in enumerate(train_val_tag):
         img_src = os.path.join(args.dataset_root, images[i] + '.png')
-        tsv_src = os.path.join(args.dataset_root, images[i] + '.tsv')
+        json_src = os.path.join(args.dataset_root, images[i] + '.json')
         if is_train:
             shutil.move(img_src, train_dir)
-            shutil.move(tsv_src, train_dir)
+            shutil.move(json_src, train_dir)
         else:
             shutil.move(img_src, val_dir)
-            shutil.move(tsv_src, val_dir)
+            shutil.move(json_src, val_dir)
     
     save_file_list(train_dir, os.path.join(args.dataset_root, 'CIRCOR_TRAIN'))
     save_file_list(val_dir, os.path.join(args.dataset_root, 'CIRCOR_VAL'))

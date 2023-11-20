@@ -19,6 +19,7 @@ the number of epochs should be adapted so that we have the same number of iterat
 """
 import datetime
 import os
+from pathlib import Path
 import time
 
 import presets
@@ -29,11 +30,14 @@ import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
 import utils
 import wandb
+from PIL import Image, ImageDraw
 from coco_utils import get_coco
 from engine import evaluate, train_one_epoch
 from group_by_aspect_ratio import create_aspect_ratio_groups, GroupedBatchSampler
 from torchvision.transforms import InterpolationMode
 from transforms import SimpleCopyPaste
+
+from sound2coco import filename2id
 
 
 def copypaste_collate_fn(batch):
@@ -199,6 +203,81 @@ def get_args_parser(add_help=True):
     return parser
 
 
+def draw_predictions(results, dirname):
+    with open(os.path.join(args.data_path, 'CIRCOR_VAL'), 'r') as f:
+        dir_filename = f.readline()
+        for _ in range(10):
+            dir_filename = dir_filename[:-1]
+            with Image.open(os.path.join(args.data_path, dir_filename + '.png')) as img:
+                draw = ImageDraw.Draw(img)
+
+                # Get the image id from the filename
+                filename = dir_filename.split('/')[-1]
+                image_id = filename2id(filename)
+
+                img_results = results.get(image_id, [])
+                if img_results != []:
+                    boxes = img_results['boxes']
+                    scores = img_results['scores']
+                    labels = img_results['labels']
+                else:
+                    boxes = []
+                    scores = []
+                    labels = []
+
+                def compute_iou(box_a, box_b):
+                    if len(list(filter(lambda x: x < 0, box_a + box_b))) > 0:
+                        return 0
+                    
+                    union_box = {
+                        'x_min': max(box_a[0], box_b[0]),
+                        'y_min': max(box_a[1], box_b[1]),
+                        'x_max': min(box_a[0] + box_a[2], box_b[0] + box_b[2]),
+                        'y_max': min(box_a[1] + box_a[3], box_b[1] + box_b[3]),
+                    }
+                    width = union_box['x_max'] - union_box['x_min']
+                    height = union_box['y_max'] - union_box['y_min']
+                    if width < 0 or height < 0:
+                        return 0
+                    
+                    union = width * height
+                    area_a = box_a[2] * box_a[3]
+                    area_b = box_b[2] * box_b[3]
+                    intersection = area_a + area_b - union
+
+                    return float(union) / intersection
+
+                # Non-Max Suppression
+                boxes_nms = []
+                labels_nms = []
+                nms_threshold = 0.5
+                for i, box in enumerate(boxes):
+                    discard = False
+                    for j, other_box in enumerate(boxes):
+                        if i == j or labels[i] != labels[j]:
+                            continue
+                        if compute_iou(box, other_box) > nms_threshold:
+                            if scores[i] < scores[j]:
+                                discard = True
+                    if not discard:
+                        boxes_nms.append(box)
+                        labels_nms.append(labels[i])
+
+                # Draw each box
+                for i, box in enumerate(boxes_nms):
+                    # Box format: [x, y, width, height]
+                    x, y, width, height = box
+                    color = "red" if labels_nms[i] == 1 else "blue"
+                    draw.rectangle([x, y, x + width, y + height], outline=color)
+
+                # Display the image
+                eval_img_dir = Path(f'eval/{dirname}/')
+                eval_img_dir.mkdir(parents=True, exist_ok=True)
+
+                img.save(os.path.join(eval_img_dir, filename + '.png'), 'png')
+            dir_filename = f.readline()
+
+
 def main(args):
     if args.backend.lower() == "tv_tensor" and not args.use_v2:
         raise ValueError("Use --use-v2 if you want to use the tv_tensor backend.")
@@ -334,7 +413,8 @@ def main(args):
 
     if args.test_only:
         torch.backends.cudnn.deterministic = True
-        evaluate(model, data_loader_test, device=device)
+        _, results = evaluate(model, data_loader_test, device=device)
+        draw_predictions(results, 'test')
         return
     
     if args.wandb:
@@ -361,14 +441,6 @@ def main(args):
 
         metric_logger = train_one_epoch(model, optimizer, data_loader, device, epoch, args.print_freq, scaler)
 
-        if args.wandb:
-            wandb.log({
-                'loss': metric_logger.loss.avg,
-                'location loss': metric_logger.bbox_regression.avg,
-                'confidence loss': metric_logger.classification.avg,
-                'learning rate': metric_logger.lr.value,
-            })
-
         lr_scheduler.step()
 
         if args.output_dir:
@@ -387,7 +459,35 @@ def main(args):
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
         # evaluate after every epoch
-        evaluate(model, data_loader_test, device=device)
+        coco_evaluator, results = evaluate(model, data_loader_test, device=device)
+        eval_stats = coco_evaluator.coco_eval['bbox'].stats
+
+        if epoch == (args.epochs - 1):
+            draw_predictions(results, f'epoch-{epoch}')
+
+        if args.wandb:
+            wandb.log({
+                'train': {
+                    'loss': metric_logger.loss.avg,
+                    'location loss': metric_logger.bbox_regression.avg,
+                    'confidence loss': metric_logger.classification.avg,
+                    'learning rate': metric_logger.lr.value,
+                },
+                'evaluation': {
+                    'AP, IOU=0.5:0.95': eval_stats[0],
+                    'AP, IOU=0.5': eval_stats[1],
+                    'AP, IOU=0.75': eval_stats[2],
+                    'AP, area=small': eval_stats[3],
+                    'AP, area=medium': eval_stats[4],
+                    #'AP, area=large': eval_stats[5], # always show -1.0, because no bbox is larger than 96x96
+                    'AR, dets=1': eval_stats[6],
+                    'AR, dets=10': eval_stats[7],
+                    'AR, dets=100': eval_stats[8],
+                    'AR, area=small': eval_stats[9],
+                    'AR, area=medium': eval_stats[10],
+                    #'AR, area=large': eval_stats[11], # always show -1.0, because no bbox is larger than 96x96
+                }
+            })
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
