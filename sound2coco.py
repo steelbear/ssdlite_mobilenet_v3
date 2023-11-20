@@ -145,6 +145,7 @@ def main():
         'categories': CATEGORIES
     }
 
+    os.makedirs(os.path.split(args.output)[0], exist_ok=True)
     with open(args.output, 'w') as f:
         json.dump(dataset_json, f)
 
