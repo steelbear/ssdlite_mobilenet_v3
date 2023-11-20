@@ -9,25 +9,32 @@ import shutil
 parser = argparse.ArgumentParser(
     prog='Train / Validation spliter'
 )
-parser.add_argument('--dataset_root', type=str)
+parser.add_argument('--data-path', type=str)
 parser.add_argument('--dataset', type=str)
-parser.add_argument('--val_rate', type=float)
+parser.add_argument('--val-rate', type=float)
+parser.add_argument('--anno-ext', type=str, choices=['json', 'tsv'], default='tsv')
 args = parser.parse_args()
 
 
-def save_file_list(dir, output):
-    file_list = glob.glob(os.path.join(dir, '*.json'))
+def save_file_list(dir, output, anno_ext):
+    file_list = glob.glob(os.path.join(dir, '*' + anno_ext))
     with open(output, 'w') as f:
         for file_path in file_list:
-            dir_path, file_name = os.path.split(file_path)
+            dir_path, file_name_ext = os.path.split(file_path)
             _, dir_name = os.path.split(dir_path)
-            f.write(f'{dir_name}/{file_name[:-5]}\n')
+            file_name, _ = os.path.splitext(file_name_ext)
+            f.write(f'{dir_name}/{file_name}\n')
 
 
 def main():
-    record_path = os.path.join(args.dataset_root, args.dataset)
-    train_dir = Path(args.dataset_root, 'train2017')
-    val_dir = Path(args.dataset_root, 'val2017')
+    if args.anno_ext == 'json':
+        anno_ext = '.json'
+    else:
+        anno_ext = '.tsv'
+
+    record_path = os.path.join(args.data_path, args.dataset)
+    train_dir = Path(args.data_path, 'train2017')
+    val_dir = Path(args.data_path, 'val2017')
 
     train_dir.mkdir(exist_ok=True)
     val_dir.mkdir(exist_ok=True)
@@ -44,17 +51,17 @@ def main():
         train_val_tag[i] = False
 
     for i, is_train in enumerate(train_val_tag):
-        img_src = os.path.join(args.dataset_root, images[i] + '.png')
-        json_src = os.path.join(args.dataset_root, images[i] + '.json')
+        img_src = os.path.join(args.data_path, images[i] + '.png')
+        anno_src = os.path.join(args.data_path, images[i] + anno_ext)
         if is_train:
             shutil.move(img_src, train_dir)
-            shutil.move(json_src, train_dir)
+            shutil.move(anno_src, train_dir)
         else:
             shutil.move(img_src, val_dir)
-            shutil.move(json_src, val_dir)
+            shutil.move(anno_src, val_dir)
     
-    save_file_list(train_dir, os.path.join(args.dataset_root, 'CIRCOR_TRAIN'))
-    save_file_list(val_dir, os.path.join(args.dataset_root, 'CIRCOR_VAL'))
+    save_file_list(train_dir, os.path.join(args.data_path, 'CIRCOR_TRAIN'), anno_ext)
+    save_file_list(val_dir, os.path.join(args.data_path, 'CIRCOR_VAL'), anno_ext)
 
 
 if __name__ == '__main__':

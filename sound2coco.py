@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import os
 import re
@@ -54,9 +55,10 @@ CATEGORIES = [
 parser = argparse.ArgumentParser(
     prog='SoundData to COCO Converter'
 )
+parser.add_argument('--data-path', type=str, help='path to dataset folder')
 parser.add_argument('--dataset', type=str, help='dataset record file')
-parser.add_argument('--dataset_root', type=str, help='path to dataset folder')
 parser.add_argument('--output', type=str, help='path to json file to save the result')
+parser.add_argument('--anno-ext', type=str, choices=['json', 'tsv'], default='tsv')
 
 
 def filename2id(filename):
@@ -67,15 +69,15 @@ def filename2id(filename):
     return int(id)
 
 
-def get_image_and_anno(file_path: str):
+def get_image_and_anno(file_path, anno_ext):
     anno_infos = []
 
     filename = file_path.split('/')[-1]
     image_path = file_path + '.png'
-    json_path = file_path + '.json'
+    anno_path = file_path + anno_ext
     image_id = filename2id(filename)
 
-    image = cv2.imread(os.path.join(args.dataset_root, image_path))
+    image = cv2.imread(os.path.join(args.data_path, image_path))
     height, width, _ = image.shape
     image_info = {
         "file_name": filename + '.png',
@@ -84,12 +86,17 @@ def get_image_and_anno(file_path: str):
         "width": width
     }
 
-    with open(os.path.join(args.dataset_root, json_path), 'r') as f:
-        anno_json = json.load(f)
+    with open(os.path.join(args.data_path, anno_path), 'r') as f:
+        if anno_ext == '.json':
+            anno_list = json.load(f)
+        else:
+            anno_list = csv.reader(f, delimiter='\t')
 
         id = 0
         
-        for xmin, ymin, xmax, ymax, anno in anno_json:
+        for xmin, ymin, xmax, ymax, anno in anno_list:
+            if anno_ext == '.tsv':
+                xmin, ymin, xmax, ymax, anno = map(int, [xmin, ymin, xmax, ymax, anno])
             category_id = 1 if int(anno) == 1 else 2
             bbox_height = ymax - ymin
             bbox_width = xmax - xmin
@@ -115,14 +122,19 @@ def main():
     images = []
     annotations = []
 
-    record_path = os.path.join(args.dataset_root, args.dataset)
+    if args.anno_ext == 'json':
+        anno_ext = '.json'
+    else:
+        anno_ext = '.tsv'
+
+    record_path = os.path.join(args.data_path, args.dataset)
     print(record_path)
 
     with open(record_path, 'r') as f:
         line = f.readline()
         while line != '':
             line = line[:-1]
-            image_info, anno_infos = get_image_and_anno(line)
+            image_info, anno_infos = get_image_and_anno(line, anno_ext)
             images.append(image_info)
             annotations.extend(anno_infos)
             line = f.readline()
