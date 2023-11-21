@@ -429,6 +429,7 @@ def main(args):
                 "architecture": "SSDLite+MobileNetV3",
                 "dataset": "CirCor",
                 "max_epoch": args.epochs,
+                "dataset_path": args.data_path,
             }
         )
 

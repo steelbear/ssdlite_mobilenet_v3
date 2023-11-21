@@ -5,3 +5,4 @@ wandb/*
 *.json
 poetry.lock
 circor/*
+eval/*
