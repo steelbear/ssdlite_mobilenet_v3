@@ -202,6 +202,11 @@ def get_args_parser(add_help=True):
         help="Use WandB",
         action="store_true",
     )
+    parser.add_argument(
+        "--log_per_epochs",
+        type=int,
+        default=100
+    )
 
     return parser
 
@@ -463,7 +468,7 @@ def main(args):
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
         # evaluate after every epoch
-        coco_evaluator, results = evaluate(model, data_loader_test, device=device)
+        coco_evaluator, results = evaluate(model, data_loader_test, device=device, log_per_epochs=args.log_per_epochs)
         eval_stats = coco_evaluator.coco_eval['bbox'].stats
 
         if epoch == (args.epochs - 1):
