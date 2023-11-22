@@ -6,3 +6,4 @@ wandb/*
 poetry.lock
 circor/*
 eval/*
+input_test/*

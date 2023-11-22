@@ -63,8 +63,8 @@ class DetectionPresetTrain:
             ]
         elif data_augmentation == "ssdlite":
             transforms += [
-                T.RandomIoUCrop(),
-                T.RandomHorizontalFlip(p=hflip_prob),
+                #T.RandomIoUCrop(),
+                #T.RandomHorizontalFlip(p=hflip_prob),
             ]
         else:
             raise ValueError(f'Unknown data augmentation policy "{data_augmentation}"')
