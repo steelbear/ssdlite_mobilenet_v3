@@ -1,9 +1,11 @@
-coco/*
-*.pth
 __pycache__/*
 wandb/*
-*.json
 poetry.lock
-circor/*
-eval/*
-input_test/*
+CIRCOR_TRAIN
+CIRCOR_VAL
+DATA
+*.pth
+*.json
+*.png
+*.tsv
+*.zip
