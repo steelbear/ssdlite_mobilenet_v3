@@ -422,7 +422,7 @@ def main(args):
     if args.test_only:
         torch.backends.cudnn.deterministic = True
         _, results = evaluate(model, data_loader_test, device=device)
-        draw_predictions(results, 'test')
+        draw_predictions(results, os.path.join('test', args.data_path))
         return
     
     if args.wandb:
@@ -472,7 +472,7 @@ def main(args):
         eval_stats = coco_evaluator.coco_eval['bbox'].stats
 
         if epoch == (args.epochs - 1):
-            draw_predictions(results, f'epoch-{epoch}')
+            draw_predictions(results, os.path.join(args.data_path, f'epoch-{epoch}'))
 
         if args.wandb:
             wandb.log({
