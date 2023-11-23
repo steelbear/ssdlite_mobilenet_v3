@@ -202,16 +202,13 @@ def get_args_parser(add_help=True):
         help="Use WandB",
         action="store_true",
     )
-    parser.add_argument(
-        "--log_per_epochs",
-        type=int,
-        default=100
-    )
+    parser.add_argument("--log-per-epochs", type=int, default=100)
+    parser.add_argument("--save-per-epochs", type=int, default=1)
 
     return parser
 
 
-def draw_predictions(results, dirname):
+def draw_predictions(results, dirname, nms_threshold=0.5):
     with open(os.path.join(args.data_path, 'CIRCOR_VAL'), 'r') as f:
         dir_filename = f.readline()
         for _ in range(10):
@@ -245,7 +242,7 @@ def draw_predictions(results, dirname):
                     }
                     width = union_box['x_max'] - union_box['x_min']
                     height = union_box['y_max'] - union_box['y_min']
-                    if width < 0 or height < 0:
+                    if width <= 0 or height <= 0:
                         return 0
                     
                     union = width * height
@@ -258,7 +255,7 @@ def draw_predictions(results, dirname):
                 # Non-Max Suppression
                 boxes_nms = []
                 labels_nms = []
-                nms_threshold = 0.5
+                
                 for i, box in enumerate(boxes):
                     discard = False
                     for j, other_box in enumerate(boxes):
@@ -464,6 +461,7 @@ def main(args):
             if args.amp:
                 checkpoint["scaler"] = scaler.state_dict()
 
+        if epoch % args.save_per_epochs == 0:
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
