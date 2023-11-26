@@ -63,7 +63,7 @@ class DetectionPresetTrain:
             ]
         elif data_augmentation == "ssdlite":
             transforms += [
-                #T.RandomIoUCrop(),
+                T.RandomIoUCrop(),
                 #T.RandomHorizontalFlip(p=hflip_prob),
             ]
         else:

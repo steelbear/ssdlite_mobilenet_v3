@@ -208,7 +208,7 @@ def get_args_parser(add_help=True):
     return parser
 
 
-def draw_predictions(results, dirname, nms_threshold=0.5):
+def draw_predictions(results, dirname, nms_threshold=0.5, score_threshold=0.3):
     with open(os.path.join(args.data_path, 'CIRCOR_VAL'), 'r') as f:
         dir_filename = f.readline()
         for _ in range(10):
@@ -251,6 +251,21 @@ def draw_predictions(results, dirname, nms_threshold=0.5):
                     intersection = area_a + area_b - union
 
                     return float(union) / intersection
+                
+                high_conf = {
+                    'boxes': [],
+                    'labels': [],
+                    'scores': [],
+                }
+                for box, label, score in zip(boxes, labels, scores):
+                    if score > score_threshold:
+                        high_conf['boxes'].append(box)
+                        high_conf['labels'].append(label)
+                        high_conf['scores'].append(score)
+
+                boxes = high_conf['boxes']
+                labels = high_conf['labels']
+                scores = high_conf['scores']
 
                 # Non-Max Suppression
                 boxes_nms = []

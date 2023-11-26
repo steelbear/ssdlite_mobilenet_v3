@@ -8,6 +8,7 @@ import torchvision.models.detection.mask_rcnn
 import utils
 from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
+from torchvision.transforms.functional import crop
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, scaler=None, use_wandb=False):
@@ -76,6 +77,21 @@ def _get_iou_types(model):
     return iou_types
 
 
+def split_image_to_patches(image):
+    _, height, width = image.shape
+    patches = []
+    
+    step = height // 2
+    left_list = [0]
+    while (left_list[-1] + height) < width:
+        left_list.append(left_list[-1] + step - 1)
+    
+    for left in left_list:
+        patches.append(crop(image, 0, left, height, height))
+
+    return patches, left_list
+
+
 @torch.inference_mode()
 def evaluate(model, data_loader, device="cpu", log_per_epochs=100):
     results = {}
@@ -97,7 +113,24 @@ def evaluate(model, data_loader, device="cpu", log_per_epochs=100):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         model_time = time.time()
-        outputs = model(images)
+        outputs = []
+        for image in images:
+            patches, left_list = split_image_to_patches(image)
+            preds = model(patches)
+            output = {
+                'boxes': [],
+                'scores': [],
+                'labels': [],
+            }
+            for i in range(len(preds)):
+                preds[i]['boxes'][0] += left_list[i]
+                output['boxes'].append(preds[i]['boxes'])
+                output['scores'].append(preds[i]['scores'])
+                output['labels'].append(preds[i]['labels'])
+            output['boxes'] = torch.cat(output['boxes'])
+            output['scores'] = torch.cat(output['scores'])
+            output['labels'] = torch.cat(output['labels'])
+            outputs.append(output)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time

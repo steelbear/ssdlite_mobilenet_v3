@@ -114,7 +114,7 @@ class RandomIoUCrop(nn.Module):
                 # check the aspect ratio limitations
                 r = self.min_scale + (self.max_scale - self.min_scale) * torch.rand(2)
                 new_w = int(orig_w * r[0])
-                new_h = int(orig_h * r[1])
+                new_h = int(orig_h) #int(orig_h * r[1]) # fixed height for circor dataset
                 aspect_ratio = new_w / new_h
                 if not (self.min_aspect_ratio <= aspect_ratio <= self.max_aspect_ratio):
                     continue
