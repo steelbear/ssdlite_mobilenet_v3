@@ -93,7 +93,7 @@ def split_image_to_patches(image):
 
 
 @torch.inference_mode()
-def evaluate(model, data_loader, device="cpu", log_per_epochs=100):
+def evaluate(model, data_loader, device="cpu", log_per_epochs=100, use_patch=False):
     results = {}
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
@@ -113,24 +113,28 @@ def evaluate(model, data_loader, device="cpu", log_per_epochs=100):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         model_time = time.time()
-        outputs = []
-        for image in images:
-            patches, left_list = split_image_to_patches(image)
-            preds = model(patches)
-            output = {
-                'boxes': [],
-                'scores': [],
-                'labels': [],
-            }
-            for i in range(len(preds)):
-                preds[i]['boxes'][0] += left_list[i]
-                output['boxes'].append(preds[i]['boxes'])
-                output['scores'].append(preds[i]['scores'])
-                output['labels'].append(preds[i]['labels'])
-            output['boxes'] = torch.cat(output['boxes'])
-            output['scores'] = torch.cat(output['scores'])
-            output['labels'] = torch.cat(output['labels'])
-            outputs.append(output)
+        
+        if use_patch:
+            outputs = []
+            for image in images:
+                patches, left_list = split_image_to_patches(image)
+                preds = model(patches)
+                output = {
+                    'boxes': [],
+                    'scores': [],
+                    'labels': [],
+                }
+                for i in range(len(preds)):
+                    preds[i]['boxes'][0] += left_list[i]
+                    output['boxes'].append(preds[i]['boxes'])
+                    output['scores'].append(preds[i]['scores'])
+                    output['labels'].append(preds[i]['labels'])
+                output['boxes'] = torch.cat(output['boxes'])
+                output['scores'] = torch.cat(output['scores'])
+                output['labels'] = torch.cat(output['labels'])
+                outputs.append(output)
+        else:
+            outputs = model(images)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time
