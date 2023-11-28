@@ -208,7 +208,7 @@ def get_args_parser(add_help=True):
     return parser
 
 
-def draw_predictions(results, dirname, nms_threshold=0.5, score_threshold=0.3):
+def draw_predictions(results, dirname, nms_threshold=0.5, score_threshold=0.0):
     with open(os.path.join(args.data_path, 'CIRCOR_VAL'), 'r') as f:
         dir_filename = f.readline()
         for _ in range(10):
